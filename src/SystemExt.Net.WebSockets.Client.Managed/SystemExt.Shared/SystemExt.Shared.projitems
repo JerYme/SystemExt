@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>af548e43-7abd-4d5f-882f-f92d5ab1f04f</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>SystemExt.Shared</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)ArraySegmentsStream.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ArraySegmentStream.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)StreamOfStreams.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)StreamReaderPeekable.cs" />
+  </ItemGroup>
+</Project>

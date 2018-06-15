@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\System.Net.WebSockets.Client.Managed\System.Net.WebSockets.Client.Managed.csproj" />
+    <ProjectReference Include="..\SystemExt.Net.WebSockets.Client.Managed\SystemExt.Net.WebSockets.Client.Managed.csproj" />
   </ItemGroup>
 
 </Project>
