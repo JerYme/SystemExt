@@ -24,7 +24,8 @@ namespace TestApp
         {
             using (var ws = new System.Net.WebSockets.Managed.ClientWebSocket())
             {
-                await ws.ConnectAsync(new Uri(server), CancellationToken.None);
+                var uri = new Uri(server);
+                await ws.ConnectAsync(uri, CancellationToken.None);
 
                 var buffer = new ArraySegment<byte>(new byte[1024]);
                 var readTask = ws.ReceiveAsync(buffer, CancellationToken.None);
@@ -41,6 +42,8 @@ namespace TestApp
                     throw new Exception($"Expected to read back '{msg}' but got '{reply}' for server {server}");
                 }
                 Console.WriteLine("Success connecting to server " + server);
+                Console.WriteLine("Press enter to exit ");
+                Console.ReadLine();
             }
         }
     }

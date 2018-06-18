@@ -84,7 +84,7 @@ namespace System.Net.WebSockets.Managed
 
             // Connect to the remote server
             return ConnectSocketAsync(uri.Host, uri.Port, cancellationToken)
-                .ContinueWith(task => ConvertSocketToWebSocket(uri, cancellationToken, options, task.Result), TaskContinuationOptions.AttachedToParent).Unwrap()
+                .ContinueWithTask(task => ConvertSocketToWebSocket(uri, cancellationToken, options, task.Result), TaskContinuationOptions.AttachedToParent)
                 .CatchWith((Exception exc) =>
                 {
                     if (_state < WebSocketState.Closed)
@@ -110,7 +110,7 @@ namespace System.Net.WebSockets.Managed
         private Task ConvertSocketToWebSocket(Uri uri, CancellationToken cancellationToken, ClientWebSocketOptions options, Socket connectedSocket)
         {
             return ConvertStreamToNetworkStream(uri, options, connectedSocket)
-                .ContinueWith(t1 =>
+                .ContinueWithTask(t1 =>
                 {
                     var stream = t1.Result;
 
@@ -120,12 +120,12 @@ namespace System.Net.WebSockets.Managed
 
                     // Write out the header to the connection
                     return stream.WriteAsync(requestHeader, 0, requestHeader.Length, cancellationToken).ContinueWith(t2 => new { secKeyAndSecWebSocketAccept, stream }, TaskContinuationOptions.AttachedToParent);
-                }, TaskContinuationOptions.AttachedToParent).Unwrap()
-                .ContinueWith(tr =>
+                }, TaskContinuationOptions.AttachedToParent)
+                .ContinueWithTask(tr =>
                 {
                     var r = tr.Result;
                     return ParseAndValidateConnectResponseAsync(r.stream, options, r.secKeyAndSecWebSocketAccept.Value, cancellationToken).ContinueWith(t2 => new { subprotocol = t2.Result, r.stream }, TaskContinuationOptions.AttachedToParent);
-                }, TaskContinuationOptions.AttachedToParent).Unwrap()
+                }, TaskContinuationOptions.AttachedToParent)
                 .ContinueWith(tr =>
                 {
                     // Parse the response and store our state for the remainder of the connection
@@ -163,16 +163,14 @@ namespace System.Net.WebSockets.Managed
         private Task<Socket> ConnectSocketAsync(string host, int port, CancellationToken cancellationToken)
         {
             return DnsEx.GetHostAddressesAsync(host)
-                .ContinueWith(task =>
+                .ContinueWithTask(task =>
                 {
                     IPAddress[] addresses = task.Result;
-
                     var tasks = Array.ConvertAll(addresses, address =>
                     {
                         var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
                         var r1 = cancellationToken.Register(s => ((Socket)s).Close(), socket);
                         var r2 = _abortSource.Token.Register(s => ((Socket)s).Close(), socket);
-
                         return socket.ConnectAsync(address, port)
                             .CatchWith((ObjectDisposedException ode) =>
                             {
@@ -197,19 +195,24 @@ namespace System.Net.WebSockets.Managed
                              });
 
                     });
+                    //var tokenSource = new CancellationTokenSource();
+                    //Task.Run(() => { Console.WriteLine("processing"); }, tokenSource.Token);
+                    //tokenSource.CancelAfter(TimeSpan.FromSeconds(30));
 
-                    return Task.Factory.StartNew(() =>
-                    {
-                        if (Task.WaitAny(tasks, 30000, cancellationToken) == 0)
-                        {
-                            Debug.Fail("We should never get here. We should have already returned or an exception should have been thrown.");
-                            throw new WebSocketException(SR.net_webstatus_ConnectFailure);
-                        }
+                    return Task.Factory.ContinueWhenAny(tasks, t => t.Result, cancellationToken).TimeoutAfter(30000);
 
-                        return tasks.Where(t => t.IsCompleted).Select(t => t.Result).First();
-                    }, cancellationToken);
+                    //return Task.Factory.StartNew(() =>
+                    //{
+                    //    if (Task.WaitAny(tasks, 30000, cancellationToken) == 0)
+                    //    {
+                    //        Debug.Fail("We should never get here. We should have already returned or an exception should have been thrown.");
+                    //        throw new WebSocketException(SR.net_webstatus_ConnectFailure);
+                    //    }
 
-                }, cancellationToken).Unwrap();
+                    //    return tasks.Where(t => t.IsCompleted).Select(t => t.Result).First();
+                    //}, cancellationToken);
+
+                }, cancellationToken);
         }
 
         /// <summary>Creates a byte[] containing the headers to send to the server.</summary>
@@ -316,9 +319,7 @@ namespace System.Net.WebSockets.Managed
             Stream stream, ClientWebSocketOptions options, string expectedSecWebSocketAccept, CancellationToken cancellationToken)
         {
             return ReadResponseHeaderLineAsync(stream, cancellationToken)
-                .ContinueWith(task => ReadResponseHeaderLineAsync(stream, cancellationToken), cancellationToken)
-                .Unwrap()
-                .ContinueWith(task =>
+                .ContinueWithTask(task =>
                 {
                     // Read the first line of the response
                     string statusLine = task.Result;
@@ -355,53 +356,54 @@ namespace System.Net.WebSockets.Managed
                     bool foundUpgrade = false, foundConnection = false, foundSecWebSocketAccept = false;
                     string subprotocol = null;
 
-                    return TaskEx.AsyncLoopTask(() => ReadResponseHeaderLineAsync(stream, cancellationToken)
-                        .ContinueWith(t1 =>
-                        {
-                            var line = t1.Result;
-                            if (string.IsNullOrEmpty(line))
-                            {
-                                if (!foundUpgrade || !foundConnection || !foundSecWebSocketAccept)
+                    return TaskEx.AsyncLoopTask(() =>
+                            ReadResponseHeaderLineAsync(stream, cancellationToken)
+                                .ContinueWith(t1 =>
                                 {
-                                    throw new WebSocketException(SR.net_webstatus_ConnectFailure);
-                                }
-                                return false;
-                            }
+                                    var line = t1.Result;
+                                    if (string.IsNullOrEmpty(line))
+                                    {
+                                        if (!foundUpgrade || !foundConnection || !foundSecWebSocketAccept)
+                                        {
+                                            throw new WebSocketException(SR.net_webstatus_ConnectFailure);
+                                        }
+                                        return Flow.Continue();
+                                    }
 
-                            int colonIndex = line.IndexOf(':');
-                            if (colonIndex == -1)
-                            {
-                                throw new WebSocketException(WebSocketError.HeaderError);
-                            }
+                                    int colonIndex = line.IndexOf(':');
+                                    if (colonIndex == -1)
+                                    {
+                                        throw new WebSocketException(WebSocketError.HeaderError);
+                                    }
 
-                            string headerName = line.SubstringTrim(0, colonIndex);
-                            string headerValue = line.SubstringTrim(colonIndex + 1);
+                                    string headerName = line.SubstringTrim(0, colonIndex);
+                                    string headerValue = line.SubstringTrim(colonIndex + 1);
 
-                            // The Connection, Upgrade, and SecWebSocketAccept headers are required and with specific values.
-                            ValidateAndTrackHeader(HttpKnownHeaderNames.Connection, "Upgrade", headerName, headerValue, ref foundConnection);
-                            ValidateAndTrackHeader(HttpKnownHeaderNames.Upgrade, "websocket", headerName, headerValue, ref foundUpgrade);
-                            ValidateAndTrackHeader(HttpKnownHeaderNames.SecWebSocketAccept, expectedSecWebSocketAccept, headerName, headerValue, ref foundSecWebSocketAccept);
+                                    // The Connection, Upgrade, and SecWebSocketAccept headers are required and with specific values.
+                                    ValidateAndTrackHeader(HttpKnownHeaderNames.Connection, "Upgrade", headerName, headerValue, ref foundConnection);
+                                    ValidateAndTrackHeader(HttpKnownHeaderNames.Upgrade, "websocket", headerName, headerValue, ref foundUpgrade);
+                                    ValidateAndTrackHeader(HttpKnownHeaderNames.SecWebSocketAccept, expectedSecWebSocketAccept, headerName, headerValue, ref foundSecWebSocketAccept);
 
-                            // The SecWebSocketProtocol header is optional.  We should only get it with a non-empty value if we requested subprotocols,
-                            // and then it must only be one of the ones we requested.  If we got a subprotocol other than one we requested (or if we
-                            // already got one in a previous header), fail. Otherwise, track which one we got.
-                            if (string.Equals(HttpKnownHeaderNames.SecWebSocketProtocol, headerName, StringComparison.OrdinalIgnoreCase) &&
-                                !headerValue.IsNullOrWhiteSpace())
-                            {
-                                string newSubprotocol = options.RequestedSubProtocols.Find(requested => string.Equals(requested, headerValue, StringComparison.OrdinalIgnoreCase));
-                                if (newSubprotocol == null || subprotocol != null)
-                                {
-                                    throw new WebSocketException(
-                                        WebSocketError.UnsupportedProtocol,
-                                        SR.Format(SR.net_WebSockets_AcceptUnsupportedProtocol, options.RequestedSubProtocols.Join(", "), subprotocol));
-                                }
-                                subprotocol = newSubprotocol;
-                            }
-                            return true;
-                        }, cancellationToken)
+                                    // The SecWebSocketProtocol header is optional.  We should only get it with a non-empty value if we requested subprotocols,
+                                    // and then it must only be one of the ones we requested.  If we got a subprotocol other than one we requested (or if we
+                                    // already got one in a previous header), fail. Otherwise, track which one we got.
+                                    if (string.Equals(HttpKnownHeaderNames.SecWebSocketProtocol, headerName, StringComparison.OrdinalIgnoreCase) &&
+                                        !headerValue.IsNullOrWhiteSpace())
+                                    {
+                                        string newSubprotocol = options.RequestedSubProtocols.Find(requested => string.Equals(requested, headerValue, StringComparison.OrdinalIgnoreCase));
+                                        if (newSubprotocol == null || subprotocol != null)
+                                        {
+                                            throw new WebSocketException(
+                                                WebSocketError.UnsupportedProtocol,
+                                                SR.Format(SR.net_WebSockets_AcceptUnsupportedProtocol, options.RequestedSubProtocols.Join(", "), subprotocol));
+                                        }
+                                        subprotocol = newSubprotocol;
+                                    }
+                                    return Flow.Return();
+                                }, cancellationToken)
                     )
                     .ContinueWith(t1 => subprotocol, cancellationToken);
-                }, cancellationToken).Unwrap();
+                }, cancellationToken);
         }
 
         /// <summary>Validates a received header against expected values and tracks that we've received it.</summary>
@@ -467,15 +469,15 @@ namespace System.Net.WebSockets.Managed
                     .ContinueWith(task =>
                     {
                         var i = task.Result;
-                        if (i != 1) return false;
+                        if (i != 1) return Flow.Continue();
                         char curChar = (char)arr[0];
                         if (prevChar == '\r' && curChar == '\n')
                         {
-                            return false;
+                            return Flow.Continue();
                         }
                         sb.Append(curChar);
                         prevChar = curChar;
-                        return true;
+                        return Flow.Return();
                     }, cancellationToken))
                 .ContinueWith(task =>
                 {

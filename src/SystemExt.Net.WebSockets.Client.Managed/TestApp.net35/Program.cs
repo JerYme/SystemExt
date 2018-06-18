@@ -19,8 +19,8 @@ namespace TestApp
         static void Main(string[] args)
         {
             //TestConnection(WS_TEST_SERVER).GetAwaiter().GetResult();
-            var testConnection = TestManagedClientWebSocketConnection(WS_LOCAL_SERVER);
-            testConnection.Start(TaskScheduler.Default);
+            var testConnection = TestManagedClientWebSocketConnection(WS_TEST_SERVER);
+            //testConnection.Start(TaskScheduler.Default);
             testConnection.Wait();
             //testConnection.GetAwaiter().GetResult();
         }
@@ -30,32 +30,33 @@ namespace TestApp
         {
             var ws = new System.Net.WebSockets.Managed.ClientWebSocket();
 
-            using(ws)
-            {
-                var buffer = new ArraySegment<byte>(new byte[1024]);
-                const string msg = "hello";
+            var buffer = new ArraySegment<byte>(new byte[1024*256]);
+            const string msg = "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello";
 
-                return ws.ConnectAsync(new Uri(server), CancellationToken.None)
-                     .ContinueWith(task =>
+            var uri = new UriBuilder(server) { Port = 80 }.Uri;
+            return ws.ConnectAsync(uri, CancellationToken.None)
+                 .ContinueWith(task =>
+                 {
+                     var testMsg = new ArraySegment<byte>(Encoding.UTF8.GetBytes(msg));
+                     return ws.SendAsync(testMsg, WebSocketMessageType.Text, true, CancellationToken.None);
+                 }).Unwrap()
+                 .ContinueWith(task => ws.ReceiveAsync(buffer, CancellationToken.None)).Unwrap()
+                 .ContinueWith(task =>
+                 {
+                     var read = task.Result;
+
+                     var reply = Encoding.UTF8.GetString(buffer.Array, 0, read.Count);
+
+                     if (reply != msg)
                      {
-                         var testMsg = new ArraySegment<byte>(Encoding.UTF8.GetBytes(msg));
-                         return ws.SendAsync(testMsg, WebSocketMessageType.Text, true, CancellationToken.None);
-                     }).Unwrap()
-                     .ContinueWith(task => ws.ReceiveAsync(buffer, CancellationToken.None)).Unwrap()
-                     .ContinueWith(task =>
-                     {
-                         var read = task.Result;
-
-                         var reply = Encoding.UTF8.GetString(buffer.Array, 0, read.Count);
-
-                         if (reply != msg)
-                         {
-                             throw new Exception($"Expected to read back '{msg}' but got '{reply}' for server {server}");
-                         }
-                         Console.WriteLine("Success connecting to server " + server);
-                     })
-                     .UsingWith(ws);
-            }
+                         throw new Exception($"Expected to read back '{msg}' but got '{reply}' for server {server}");
+                     }
+                     Console.WriteLine("Success connecting to server " + server);
+                     Console.WriteLine($"Received: '{reply}'");
+                     Console.WriteLine("Press enter to exit ");
+                     Console.ReadLine();
+                 })
+                 .UsingWith(ws);
         }
     }
 }

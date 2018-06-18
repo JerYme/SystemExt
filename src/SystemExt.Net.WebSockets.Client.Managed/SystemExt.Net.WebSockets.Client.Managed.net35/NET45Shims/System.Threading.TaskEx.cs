@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace System.Threading
@@ -5,15 +6,53 @@ namespace System.Threading
     public static class TaskEx
     {
         public static Task TaskCompleted;
-        public static Task<bool> TaskContinue;
-        public static Task<bool> TaskBreak;
+        public static Task<Flow> TaskContinue;
+        public static Task<Flow> TaskBreak;
+
 
         static TaskEx()
         {
             TaskCompleted = FromResult(0);
-            TaskContinue = FromResult(true);
-            TaskBreak = FromResult(false);
+            TaskContinue = FromResult(Flow.Continue());
+            TaskBreak = FromResult(Flow.Return());
         }
+
+        public static Task ContinueWithTask(this Task t, Func<Task, Task> continuationFunction)
+            => t.ContinueWith(continuationFunction).Unwrap();
+
+        public static Task ContinueWithTask(this Task t, Func<Task, Task> continuationFunction, CancellationToken cancellationToken)
+            => t.ContinueWith(continuationFunction, cancellationToken).Unwrap();
+
+        public static Task ContinueWithTask(this Task t, Func<Task, Task> continuationFunction, TaskContinuationOptions options)
+            => t.ContinueWith(continuationFunction, options).Unwrap();
+
+
+        public static Task<TResult> ContinueWithTask<TResult>(this Task t, Func<Task, Task<TResult>> continuationFunction)
+            => t.ContinueWith(continuationFunction).Unwrap();
+
+        public static Task<TResult> ContinueWithTask<TResult>(this Task t, Func<Task, Task<TResult>> continuationFunction, CancellationToken cancellationToken)
+            => t.ContinueWith(continuationFunction, cancellationToken).Unwrap();
+
+
+        public static Task ContinueWithTask<TInput>(this Task<TInput> t, Func<Task<TInput>, Task> continuationFunction)
+            => t.ContinueWith(continuationFunction).Unwrap();
+
+        public static Task ContinueWithTask<TInput>(this Task<TInput> t, Func<Task<TInput>, Task> continuationFunction, CancellationToken cancellationToken)
+            => t.ContinueWith(continuationFunction, cancellationToken).Unwrap();
+
+        public static Task ContinueWithTask<TInput>(this Task<TInput> t, Func<Task<TInput>, Task> continuationFunction, TaskContinuationOptions options)
+            => t.ContinueWith(continuationFunction, options).Unwrap();
+
+
+        public static Task<TResult> ContinueWithTask<TInput, TResult>(this Task<TInput> t, Func<Task<TInput>, Task<TResult>> continuationFunction)
+            => t.ContinueWith(continuationFunction).Unwrap();
+
+        public static Task<TResult> ContinueWithTask<TInput, TResult>(this Task<TInput> t, Func<Task<TInput>, Task<TResult>> continuationFunction, CancellationToken cancellationToken)
+            => t.ContinueWith(continuationFunction, cancellationToken).Unwrap();
+
+        public static Task<TResult> ContinueWithTask<TInput, TResult>(this Task<TInput> t, Func<Task<TInput>, Task<TResult>> continuationFunction, TaskContinuationOptions options)
+            => t.ContinueWith(continuationFunction, options).Unwrap();
+
 
         public static Task<T> FromResult<T>(T v)
         {
@@ -38,13 +77,29 @@ namespace System.Threading
         public static Task<T> TryWith<T>(this Task<T> task, Action @try) => TaskCompleted.ContinueWith(t => @try(), TaskContinuationOptions.AttachedToParent).ContinueWith(t => task, TaskContinuationOptions.AttachedToParent).Unwrap();
 
         public static Task FinallyWith(this Task task, Action @finally)
-            => task.ContinueWith(t => @finally(), TaskContinuationOptions.AttachedToParent);
+            => task.ContinueWith(t =>
+            {
+                try
+                {
+                    Debug.Assert(t.IsCanceled || t.IsCompleted || t.IsFaulted);
+                }
+                finally
+                {
+                    @finally();
+                }
+            }, TaskContinuationOptions.AttachedToParent);
 
         public static Task<T> FinallyWith<T>(this Task<T> task, Action @finally)
             => task.ContinueWith(t =>
             {
-                @finally();
-                return t.Result;
+                try
+                {
+                    return t.Result;
+                }
+                finally
+                {
+                    @finally();
+                }
             }, TaskContinuationOptions.AttachedToParent);
 
         public static Task CatchWith<TE>(this Task task, Action<TE> @catch) where TE : Exception
@@ -82,16 +137,22 @@ namespace System.Threading
                 return t.Result;
             }, TaskContinuationOptions.AttachedToParent);
 
-
-        // without async/await
-        public static Task AsyncLoopTask(Func<Task<bool>> @newTask)
+       
+        public static Task AsyncLoopTask(Func<Task<Flow>> whileTask)
         {
             var tcs = new TaskCompletionSource<int>();
-            var iteration = DoIteration(tcs, newTask);
-            return iteration.ContinueWith(t => tcs.Task.Wait(), TaskScheduler.FromCurrentSynchronizationContext());
+            var iteration = DoIteration(tcs, whileTask);
+            return iteration.ContinueWith(t => tcs.Task, TaskScheduler.Current).Unwrap();
         }
 
-        private static Task DoIteration(TaskCompletionSource<int> tcs, Func<Task<bool>> whileTask)
+        public static Task<T> AsyncLoopTask<T>(Func<Task<Flow<T>>> whileTask)
+        {
+            var tcs = new TaskCompletionSource<T>();
+            var iteration = DoIteration(tcs, whileTask);
+            return iteration.ContinueWith(t => tcs.Task, TaskScheduler.Current).Unwrap();
+        }
+        
+        private static Task DoIteration(TaskCompletionSource<int> tcs, Func<Task<Flow>> whileTask)
         {
             var newTask = whileTask();
             return newTask.ContinueWith(t =>
@@ -108,26 +169,7 @@ namespace System.Threading
                 {
                     DoIteration(tcs, whileTask);
                 }
-            }, TaskScheduler.FromCurrentSynchronizationContext());
-        }
-
-        public static Task<T> AsyncLoopTask<T>(Func<Task<Flow<T>>> whileTask)
-        {
-            var root = Task.Factory.StartNew(() =>
-            {
-                while (true)
-                {
-                    var t = whileTask();
-                    t.Start(TaskScheduler.FromCurrentSynchronizationContext());
-                    if (t.Result) continue;
-                    return t.Result.Value;
-                }
-            });
-            return root;
-
-            //var tcs = new TaskCompletionSource<T>();
-            //var iteration = DoIteration(tcs, whileTask);
-            //return iteration.ContinueWith(t => tcs.Task, TaskScheduler.FromCurrentSynchronizationContext()).Unwrap();
+            }, TaskScheduler.Current);
         }
 
         private static Task DoIteration<T>(TaskCompletionSource<T> tcs, Func<Task<Flow<T>>> whileTask)
@@ -147,7 +189,130 @@ namespace System.Threading
                 {
                     DoIteration(tcs, whileTask);
                 }
-            }, TaskScheduler.FromCurrentSynchronizationContext());
+            }, TaskScheduler.Current);
+        }
+
+        internal struct VoidTypeStruct { }  // See Footnote #1
+
+        public static Task TimeoutAfter(this Task task, int millisecondsTimeout)
+        {
+            // Short-circuit #1: infinite timeout or task already completed
+            if (task.IsCompleted || (millisecondsTimeout == Timeout.Infinite))
+            {
+                // Either the task has already completed or timeout will never occur.
+                // No proxy necessary.
+                return task;
+            }
+
+            // tcs.Task will be returned as a proxy to the caller
+            TaskCompletionSource<VoidTypeStruct> tcs =
+                new TaskCompletionSource<VoidTypeStruct>();
+
+            // Short-circuit #2: zero timeout
+            if (millisecondsTimeout == 0)
+            {
+                // We've already timed out.
+                tcs.SetException(new TimeoutException());
+                return tcs.Task;
+            }
+
+            // Set up a timer to complete after the specified timeout period
+            Timer timer = new Timer(state =>
+            {
+                // Recover your state information
+                var myTcs = (TaskCompletionSource<VoidTypeStruct>)state;
+
+                // Fault our proxy with a TimeoutException
+                myTcs.TrySetException(new TimeoutException());
+            }, tcs, millisecondsTimeout, Timeout.Infinite);
+
+            var tuple = new { timer, tcs };
+
+            // Wire up the logic for what happens when source task completes
+            task.ContinueWith((antecedent) =>
+                {
+                    // Recover our state data
+                    // Cancel the Timer
+                    tuple.timer.Dispose();
+
+                    // Marshal results to proxy
+                    MarshalTaskResults(antecedent, tuple.tcs);
+                },
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+
+            return tcs.Task;
+        }
+
+
+        public static Task<T> TimeoutAfter<T>(this Task<T> task, int millisecondsTimeout)
+        {
+            // Short-circuit #1: infinite timeout or task already completed
+            if (task.IsCompleted || (millisecondsTimeout == Timeout.Infinite))
+            {
+                // Either the task has already completed or timeout will never occur.
+                // No proxy necessary.
+                return task;
+            }
+
+            // tcs.Task will be returned as a proxy to the caller
+            TaskCompletionSource<T> tcs =
+                new TaskCompletionSource<T>();
+
+            // Short-circuit #2: zero timeout
+            if (millisecondsTimeout == 0)
+            {
+                // We've already timed out.
+                tcs.SetException(new TimeoutException());
+                return tcs.Task;
+            }
+
+            // Set up a timer to complete after the specified timeout period
+            Timer timer = new Timer(state =>
+            {
+                // Recover your state information
+                var myTcs = (TaskCompletionSource<T>)state;
+
+                // Fault our proxy with a TimeoutException
+                myTcs.TrySetException(new TimeoutException());
+            }, tcs, millisecondsTimeout, Timeout.Infinite);
+
+            var tuple = new { timer, tcs };
+
+            // Wire up the logic for what happens when source task completes
+            task.ContinueWith((antecedent) =>
+                {
+                    // Recover our state data
+                    // Cancel the Timer
+                    tuple.timer.Dispose();
+
+                    // Marshal results to proxy
+                    MarshalTaskResults(antecedent, tuple.tcs);
+                },
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+
+            return tcs.Task;
+        }
+
+
+        internal static void MarshalTaskResults<TResult>(Task source, TaskCompletionSource<TResult> proxy)
+        {
+            switch (source.Status)
+            {
+                case TaskStatus.Faulted:
+                    proxy.TrySetException(source.Exception);
+                    break;
+                case TaskStatus.Canceled:
+                    proxy.TrySetCanceled();
+                    break;
+                case TaskStatus.RanToCompletion:
+                    Task<TResult> castedSource = source as Task<TResult>;
+                    proxy.TrySetResult(castedSource == null ? default(TResult) : castedSource.Result);
+                    break;
+            }
         }
     }
 }
